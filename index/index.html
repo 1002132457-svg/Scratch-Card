@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>כרטיס גירוד דיגיטלי - GitHub Pages</title>
+    <!-- טעינת Tailwind CSS מענן -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: system-ui, -apple-system, sans-serif;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        .card-container {
+            position: relative;
+            width: 90vw;
+            max-width: 380px;
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+            padding-bottom: 20px;
+        }
+
+        .scratch-area {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 20px auto;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #f0f0f0;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        #revealed-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        #scratch-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: pointer;
+            touch-action: none;
+        }
+
+        .btn-reset {
+            background: linear-gradient(to right, #4f46e5, #6366f1);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 12px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4);
+        }
+
+        .btn-reset:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.4);
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            z-index: 1000;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card-container">
+        <div class="pt-8 text-center px-4">
+            <h1 class="text-2xl font-black text-gray-800 tracking-tight">הפתעה בדרך...</h1>
+            <p class="text-gray-500 text-sm mt-2 font-medium">גרדו את השטח האפור כדי לחשוף את התמונה!</p>
+        </div>
+
+        <div class="scratch-area">
+            <!-- התמונה שמתגלה -->
+            <img id="revealed-image" src="https://picsum.photos/600/600?random=1" alt="Revealed Image">
+            <!-- קנבס הגירוד -->
+            <canvas id="scratch-canvas" width="300" height="300"></canvas>
+        </div>
+
+        <div class="text-center mt-4">
+            <div id="status-text" class="h-8 text-indigo-600 font-bold mb-4"></div>
+            <button onclick="resetGame()" class="btn-reset">נסה כרטיס נוסף</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('scratch-canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const img = document.getElementById('revealed-image');
+        const statusText = document.getElementById('status-text');
+        
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let isFinished = false;
+
+        function initCanvas() {
+            // אתחול מצב
+            isFinished = false;
+            canvas.style.opacity = '1';
+            statusText.innerText = "";
+            
+            // מילוי הקנבס בשכבת "מתכת" אפורה
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#ADB5BD');
+            gradient.addColorStop(0.5, '#CED4DA');
+            gradient.addColorStop(1, '#ADB5BD');
+            
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // הוספת טקסט הנחיה
+            ctx.fillStyle = '#495057';
+            ctx.font = 'bold 24px system-ui';
+            ctx.textAlign = 'center';
+            ctx.fillText('גרדו כאן', canvas.width/2, canvas.height/2 + 8);
+            
+            // הוספת טקסטורה של נקודות
+            for(let i=0; i<400; i++) {
+                ctx.fillStyle = 'rgba(255,255,255,0.1)';
+                ctx.fillRect(Math.random()*canvas.width, Math.random()*canvas.height, 1, 1);
+            }
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return {
+                x: clientX - rect.left,
+                y: clientY - rect.top
+            };
+        }
+
+        function handleStart(e) {
+            if (isFinished) return;
+            isDrawing = true;
+            const pos = getMousePos(e);
+            lastX = pos.x;
+            lastY = pos.y;
+        }
+
+        function handleMove(e) {
+            if (!isDrawing || isFinished) return;
+            e.preventDefault();
+            
+            const pos = getMousePos(e);
+            
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.lineWidth = 45;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+
+            lastX = pos.x;
+            lastY = pos.y;
+
+            // בדיקת התקדמות רק בסוף תנועה לשיפור ביצועים
+            checkProgress();
+        }
+
+        function handleEnd() {
+            isDrawing = false;
+        }
+
+        function checkProgress() {
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const pixels = imageData.data;
+            let clearCount = 0;
+
+            for (let i = 0; i < pixels.length; i += 32) { // דגימה מופחתת לביצועים
+                if (pixels[i + 3] === 0) clearCount++;
+            }
+
+            const percentage = (clearCount / (pixels.length / 32)) * 100;
+
+            if (percentage > 55 && !isFinished) {
+                completeGame();
+            }
+        }
+
+        function completeGame() {
+            isFinished = true;
+            canvas.style.transition = 'opacity 0.8s ease-out';
+            canvas.style.opacity = '0';
+            statusText.innerText = "מדהים! התמונה נחשפה!";
+            createConfetti();
+        }
+
+        function resetGame() {
+            // טעינת תמונה חדשה
+            img.src = `https://picsum.photos/600/600?random=${Math.random()}`;
+            initCanvas();
+        }
+
+        function createConfetti() {
+            const colors = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+            for (let i = 0; i < 60; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.top = '-10px';
+                confetti.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+                document.body.appendChild(confetti);
+
+                confetti.animate([
+                    { transform: `translate(0, 0) rotate(0deg)`, opacity: 1 },
+                    { transform: `translate(${(Math.random() - 0.5) * 300}px, 100vh) rotate(${Math.random() * 720}deg)`, opacity: 0 }
+                ], {
+                    duration: 2500 + Math.random() * 2000,
+                    easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
+                }).onfinish = () => confetti.remove();
+            }
+        }
+
+        // מאזיני אירועים - עכבר ומגע
+        canvas.addEventListener('mousedown', handleStart);
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('mouseup', handleEnd);
+
+        canvas.addEventListener('touchstart', handleStart, { passive: false });
+        canvas.addEventListener('touchmove', handleMove, { passive: false });
+        canvas.addEventListener('touchend', handleEnd);
+
+        // הפעלה ראשונית
+        window.onload = initCanvas;
+    </script>
+</body>
+</html>
